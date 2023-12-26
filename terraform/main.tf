@@ -29,8 +29,8 @@ resource "aws_security_group" "final_security_group" {
   # Define your security group rules here
   ingress {
     from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    to_port     = 65535
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -42,6 +42,28 @@ resource "aws_security_group" "final_security_group" {
   }
 }
 
+#create ssm to store manager's private DNS
+resource "aws_ssm_parameter" "manager_private_dns" {
+  name        = "/myapp/manager_private_dns"
+  description = "Private DNS of the Manager instance"
+  type        = "String"
+  value       = aws_instance.manager.private_dns
+}
+
+#create the standalone instance
+resource "aws_instance" "standalone" {
+#  count = 1
+  ami = "ami-0fc5d935ebf8bc3bc"
+  vpc_security_group_ids = [aws_security_group.final_security_group.id]
+  instance_type = "t2.micro"
+  user_data = templatefile("standalone_script.tpl", {
+
+  }) # templatefile allows us to use terraform to pass instance information to another instance
+  tags = {
+    Name = "Standalone"
+  }
+}
+
 # create 1 t2.micro manager instance
 resource "aws_instance" "manager" {
 #  count = 1
@@ -49,9 +71,7 @@ resource "aws_instance" "manager" {
   vpc_security_group_ids = [aws_security_group.final_security_group.id]
   instance_type = "t2.micro"
   user_data = templatefile("manager_data_script.tpl", {
-    worker1hostID = aws_instance.worker1.host_id
     worker1privateDNS = aws_instance.worker1.private_dns
-    worker1privateIP = aws_instance.worker1.private_ip
   }) # templatefile allows us to use terraform to pass instance information to another instance
   tags = {
     Name = "Manager"
@@ -67,7 +87,12 @@ resource "aws_instance" "worker1" {
 #  root_block_device {
 #    volume_size = 30
 #  }
-  user_data = file("slave_data.sh")
+  user_data = templatefile("worker_data_script.tpl", {
+    accessKey = "${var.access_key}"
+    secretKey = "${var.secret_key}"
+    token = "${var.token}"
+  })
+#  depends_on = [aws_instance.manager]
   tags = {
     Name = "Worker1"
   }
@@ -81,7 +106,7 @@ resource "aws_instance" "worker1" {
 ##  root_block_device {
 ##    volume_size = 30
 ##  }
-#  user_data = file("slave_data.sh")
+#  user_data = file("worker_data_script.tpl")
 #  tags = {
 #    Name = "Worker2"
 #  }
@@ -95,7 +120,7 @@ resource "aws_instance" "worker1" {
 ##  root_block_device {
 ##    volume_size = 30
 ##  }
-#  user_data = file("slave_data.sh")
+#  user_data = file("worker_data_script.tpl")
 #  tags = {
 #    Name = "Worker3"
 #  }

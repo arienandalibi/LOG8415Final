@@ -2,31 +2,23 @@
 
 exec > /home/ubuntu/startup.log 2>&1
 
-# attempt to export variables
-export worker1hostID=${worker1hostID}
-export worker1privateDNS=${worker1privateDNS}
-export worker1privateIP=${worker1privateIP}
+# update apt-get and install dependencies
+sudo apt-get update
+#sudo apt-get install -y gedit
 
-#echo "Instance1 Private IP: $(aws_instance.worker1.private_ip)" > instance_info.txt
-echo "Instance1 Private DNS: ${worker1privateDNS}" > /home/ubuntu/instance_info2.txt
-#
-## update apt-get and install dependencies
-#sudo apt-get update
-##sudo apt-get install -y gedit
-#
-## install MySQL Cluster
-## common for workers too
-#sudo mkdir -p /opt/mysqlcluster/home
-#cd /opt/mysqlcluster/home
-#sudo wget http://dev.mysql.com/get/Downloads/MySQL-Cluster-7.2/mysql-cluster-gpl-7.2.1-linux2.6-x86_64.tar.gz
-#sudo tar xvf mysql-cluster-gpl-7.2.1-linux2.6-x86_64.tar.gz
-#ln -s mysql-cluster-gpl-7.2.1-linux2.6-x86_64 mysqlc
-#sudo sh -c "echo 'export MYSQLC_HOME=/opt/mysqlcluster/home/mysqlc' > /etc/profile.d/mysqlc.sh"
-#sudo sh -c "echo 'export PATH=$MYSQLC_HOME/bin:$PATH' >> /etc/profile.d/mysqlc.sh"
-#source /etc/profile.d/mysqlc.sh
-#sudo apt-get -y install libncurses5
-#
-## specific to master
+# install MySQL Cluster
+# common for workers too
+sudo mkdir -p /opt/mysqlcluster/home
+cd /opt/mysqlcluster/home
+sudo wget http://dev.mysql.com/get/Downloads/MySQL-Cluster-7.2/mysql-cluster-gpl-7.2.1-linux2.6-x86_64.tar.gz
+sudo tar xvf mysql-cluster-gpl-7.2.1-linux2.6-x86_64.tar.gz
+ln -s mysql-cluster-gpl-7.2.1-linux2.6-x86_64 mysqlc
+sudo sh -c "echo 'export MYSQLC_HOME=/opt/mysqlcluster/home/mysqlc' > /etc/profile.d/mysqlc.sh"
+sudo sh -c "echo 'export PATH=$MYSQLC_HOME/bin:$PATH' >> /etc/profile.d/mysqlc.sh"
+source /etc/profile.d/mysqlc.sh
+sudo apt-get -y install libncurses5
+
+# specific to master
 sudo mkdir -p /opt/mysqlcluster/deploy
 cd /opt/mysqlcluster/deploy
 sudo mkdir conf
@@ -61,4 +53,26 @@ EOF'
 
 # initialize the database
 cd /opt/mysqlcluster/home/mysqlc
-scripts/mysql_install_db –no-defaults –datadir=/opt/mysqlcluster/deploy/mysqld_data
+sudo scripts/mysql_install_db --no-defaults --datadir=/opt/mysqlcluster/deploy/mysqld_data
+
+# run the database
+sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgmd -f /opt/mysqlcluster/deploy/conf/config.ini --initial --configdir=/opt/mysqlcluster/deploy/conf/
+
+#start node
+sudo /opt/mysqlcluster/home/mysqlc/bin/mysqld --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --user=root &
+
+sleep 20
+#set password so we can connect to it in script
+/opt/mysqlcluster/home/mysqlc/bin/mysqladmin -u root password 'root'
+
+#download sakila DB
+cd ~
+sudo wget https://downloads.mysql.com/docs/sakila-db.tar.gz
+sudo tar xvf sakila-db.tar.gz
+
+
+#connect to database to add sakila DB
+sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
+SOURCE /home/ubuntu/sakila-db/sakila-schema.sql
+SOURCE /home/ubuntu/sakila-db/sakila-data.sql
+EOF
