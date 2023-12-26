@@ -28,6 +28,7 @@ cd conf
 sudo sh -c 'cat <<EOF >my.cnf
 [mysqld]
 ndbcluster
+bind-address=0.0.0.0
 datadir=/opt/mysqlcluster/deploy/mysqld_data
 basedir=/opt/mysqlcluster/home/mysqlc
 port=3306
@@ -51,28 +52,31 @@ nodeid=3
 nodeid=50
 EOF'
 
-# initialize the database
+# initialize the database system files
 cd /opt/mysqlcluster/home/mysqlc
 sudo scripts/mysql_install_db --no-defaults --datadir=/opt/mysqlcluster/deploy/mysqld_data
 
 # run the database
 sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgmd -f /opt/mysqlcluster/deploy/conf/config.ini --initial --configdir=/opt/mysqlcluster/deploy/conf/
 
-#start node
+#start node server
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysqld --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --user=root &
 
-sleep 20
+sleep 35
 #set password so we can connect to it in script
 /opt/mysqlcluster/home/mysqlc/bin/mysqladmin -u root password 'root'
 
 #download sakila DB
-cd ~
+sudo mkdir /tmp/sakila/
+cd /tmp/sakila/
 sudo wget https://downloads.mysql.com/docs/sakila-db.tar.gz
 sudo tar xvf sakila-db.tar.gz
 
 
 #connect to database to add sakila DB
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
-SOURCE /home/ubuntu/sakila-db/sakila-schema.sql
-SOURCE /home/ubuntu/sakila-db/sakila-data.sql
+CREATE USER 'myapp'@'%' IDENTIFIED BY 'myapp';
+GRANT ALL PRIVILEGES ON *.* TO 'myapp'@'%' IDENTIFIED BY 'myapp' WITH GRANT OPTION MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
+SOURCE /tmp/sakila/sakila-db/sakila-schema.sql
+SOURCE /tmp/sakila/sakila-db/sakila-data.sql
 EOF

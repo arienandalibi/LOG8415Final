@@ -26,8 +26,25 @@ export AWS_SESSION_TOKEN="${token}"
 export AWS_DEFAULT_REGION="us-east-1"
 sudo mkdir -p /opt/mysqlcluster/deploy/ndb_data
 export manager_private_dns=$(aws ssm get-parameter --name "/myapp/manager_private_dns" --query "Parameter.Value" --output text)
-echo $manager_private_dns > /home/ubuntu/info.log
-echo "First try"
-ndbd -c $manager_private_dns:1186
-echo "Second try"
+
+# run the data node
 sudo /opt/mysqlcluster/home/mysqlc/bin/ndbd -c $manager_private_dns:1186
+
+# attempt to run server on the data node
+sudo mkdir -p /opt/mysqlcluster/deploy
+cd /opt/mysqlcluster/deploy
+sudo mkdir conf
+sudo mkdir mysqld_data
+cd conf
+sudo sh -c 'cat <<EOF >my.cnf
+[mysqld]
+ndbcluster
+bind-address=0.0.0.0
+datadir=/opt/mysqlcluster/deploy/mysqld_data
+basedir=/opt/mysqlcluster/home/mysqlc
+port=3306
+EOF'
+
+# initialize the database system files
+cd /opt/mysqlcluster/home/mysqlc
+sudo scripts/mysql_install_db --no-defaults --datadir=/opt/mysqlcluster/deploy/mysqld_data
