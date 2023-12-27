@@ -1,14 +1,14 @@
 variable "access_key" {
     description = "Access key to AWS console"
-    default = "ASIA5QMUOGBSTY3POAUG"
+    default = "ASIA5QMUOGBSVQPPQMHA"
 }
 variable "secret_key" {
     description = "Secret key to AWS console"
-    default = "hIgmwGPaX11w76g5ASEADuxYMrZtQY8ZJ04NieCP"
+    default = "CPDaVfVuNJB6qtdysr1f9PZyPqfSoSZvW76HeEvR"
 }
 variable "token" {
     description = "Token to AWS console"
-    default = "IQoJb3JpZ2luX2VjEBkaCXVzLWVhc3QtMSJHMEUCIQCxuGWiaDXa6RMmQ/HPeSEE1H0oMvbc52fCABkLyiCJiwIgZFUvB66+v3LdibnRr4Nd9m+f9+CGQCkDm/ih3lu24ggq3AEIov//////////ARAAGgw5Mjg1NjExMTUyMzciDDDoR5yOcfCikpThPyqwAeWNWAiMq33MS9TYlsK/WAUYrF2D6k7bqRsZHAfXv7qC8jHSQ9YHamCkf4UUuDhPgKgxuydiZNhvg63J8Nn1jSKq5HEd2VVGoy64xDRQrsBr8UeUc/W9OcuJBAZMrHfBk1Y3q2hhC6XA1Vm3jQfM3VhE9DEuQn3fLles31hl/4mRJqScvlnskgt1jumApWkdFolhCZBTiJ+jF9Cl54ctkKr2L/07gp3oSNbkIAUMFdvgMLG9r6wGOpgBx2lzmECaMsqBUl766g8iuQ+D8j5XARQx8IAPsTozOb9miG7jaZ01VxWDXEoMXA6Vv7NT0pbsJekubUCDUV3NAWaQAA2iQrFslQQKKKVH6R/oS3elEqYrLuM9DKhV7iJ2TXtpdoKlW2l8oHwsmw/V9X7hEM7F3py6CsYu5ZNc6V0xWboqCmLStLmnT7HHzRLjux0VJU4Swso="
+    default = "IQoJb3JpZ2luX2VjEBwaCXVzLWVhc3QtMSJIMEYCIQCJqZLSy0M9QO1YYG4pC5ojPKZzM8h7yoPpebRb59WciQIhAJRmbiIRzt+Xfus36hqLNBr0i9dyZoLvK0ZaSX/XAPkQKtwBCKT//////////wEQABoMOTI4NTYxMTE1MjM3IgwgOLQX8qPkVChMxfUqsAGMqEJTrE/zdpgbPAniZG1sKaoYLfAQGN3Ha8PRpQdcogpUqdCQfx6phsMk/4uODSds/cMMtdqWs8uohhhqi6EETlh1pp9KRe1Hbdqu8Q0RS8VOgnVuCLQrJ/BPrvBCNyNc5XvZH0kzyH6Xy388YTNo6RLEGy3G7cKhkQDfbL329xXuikVewx/SrPaj0qMHSgN73Mf/lJEQvM/CyyJPOMC5I/szQbutGUxBdnnRt4H3CjDfjLCsBjqXATnKF/vIfVmWk9iWVLhfwm64EjlObTUwDI9SvWd18yK+I89pmI/GvNIsta8F7IE02uMlKUNigQYCtNERyxC3ctIuCG45V4J/Vs/glQbc/nnJKR6m9x5OUrArxoAc4ipRSmt+qUuArxKZjLO0tMo6h1m5HH+eego9eRZGzkmMnoAWThT0T0jZSV33ofUlsXv7DZu5x3OWhqE="
 }
 variable "instance_type"{
     default = "t2.micro"

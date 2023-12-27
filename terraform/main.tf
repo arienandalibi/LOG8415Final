@@ -56,9 +56,7 @@ resource "aws_instance" "standalone" {
   ami = "ami-0fc5d935ebf8bc3bc"
   vpc_security_group_ids = [aws_security_group.final_security_group.id]
   instance_type = "t2.micro"
-  user_data = templatefile("standalone_script.tpl", {
-
-  }) # templatefile allows us to use terraform to pass instance information to another instance
+#  user_data = templatefile("standalone_script.tpl", {  }) # templatefile allows us to use terraform to pass instance information to another instance
   tags = {
     Name = "Standalone"
   }
