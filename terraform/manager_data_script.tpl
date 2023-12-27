@@ -24,14 +24,23 @@ cd /opt/mysqlcluster/deploy
 sudo mkdir conf
 sudo mkdir mysqld_data
 sudo mkdir ndb_data
+sudo mkdir mysql-bin
 cd conf
 sudo sh -c 'cat <<EOF >my.cnf
 [mysqld]
 ndbcluster
+server-id=50
 bind-address=0.0.0.0
 datadir=/opt/mysqlcluster/deploy/mysqld_data
 basedir=/opt/mysqlcluster/home/mysqlc
+log-bin=/opt/mysqlcluster/deploy/mysql-bin/mysql-bin
+ndb-log-bin=ON
+binlog-format=ROW
 port=3306
+ndb-connectstring=localhost:1186
+
+[mysql_cluster]
+ndb-connectstring=localhost:1186
 EOF'
 
 sudo sh -c 'cat <<EOF >config.ini
@@ -47,9 +56,15 @@ datadir=/opt/mysqlcluster/deploy/ndb_data
 [ndbd]
 hostname=${worker1privateDNS}
 nodeid=3
+TcpBind_INADDR_ANY=1
 
 [mysqld]
+hostname=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
 nodeid=50
+
+[mysqld]
+hostname=${worker1privateDNS}
+nodeid=51
 EOF'
 
 # initialize the database system files
@@ -72,11 +87,21 @@ cd /tmp/sakila/
 sudo wget https://downloads.mysql.com/docs/sakila-db.tar.gz
 sudo tar xvf sakila-db.tar.gz
 
+#create user responsible for replication
+sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
+CREATE USER 'repl_user'@'%' IDENTIFIED BY 'password';
+GRANT REPLICATION SLAVE ON *.* TO 'repl_user'@'%';
+EOF
 
-#connect to database to add sakila DB
+sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h ${worker1privateDNS} -u repl_user -p'password' <<EOF
+START SLAVE;
+EOF
+
+# add user to connect to database and add sakila DB
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
 CREATE USER 'myapp'@'%' IDENTIFIED BY 'myapp';
 GRANT ALL PRIVILEGES ON *.* TO 'myapp'@'%' IDENTIFIED BY 'myapp' WITH GRANT OPTION MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
+FLUSH PRIVILEGES;
 SOURCE /tmp/sakila/sakila-db/sakila-schema.sql
 SOURCE /tmp/sakila/sakila-db/sakila-data.sql
 EOF
