@@ -43,59 +43,90 @@ resource "aws_security_group" "final_security_group" {
 }
 
 #create ssm to store manager's private DNS
-#resource "aws_ssm_parameter" "manager_private_dns" {
-#  name        = "/myapp/manager_private_dns"
-#  description = "Private DNS of the Manager instance"
-#  type        = "String"
-#  value       = aws_instance.manager.private_dns
-#}
-
-#create the standalone instance
-resource "aws_instance" "standalone" {
-#  count = 1
-  ami = "ami-0fc5d935ebf8bc3bc"
-  vpc_security_group_ids = [aws_security_group.final_security_group.id]
-  instance_type = "t2.micro"
-#  user_data = templatefile("standalone_script.tpl", {  }) # templatefile allows us to use terraform to pass instance information to another instance
-  tags = {
-    Name = "Standalone"
-  }
+resource "aws_ssm_parameter" "manager_private_dns" {
+  name        = "/myapp/manager_private_dns"
+  description = "Private DNS of the Manager instance"
+  type        = "String"
+  value       = aws_instance.manager.private_dns
 }
 
-# create 1 t2.micro manager instance
-#resource "aws_instance" "manager" {
+#create the standalone instance
+#resource "aws_instance" "standalone" {
 ##  count = 1
 #  ami = "ami-0fc5d935ebf8bc3bc"
 #  vpc_security_group_ids = [aws_security_group.final_security_group.id]
 #  instance_type = "t2.micro"
-#  user_data = templatefile("manager_data_script.tpl", {
-#    worker1privateDNS = aws_instance.worker1.private_dns
-#  }) # templatefile allows us to use terraform to pass instance information to another instance
+##  user_data = templatefile("standalone_script.tpl", {
+##    runSysbench = 1     # 0 = true; 1 = false
+##  }) # templatefile allows us to use terraform to pass instance information to another instance
 #  tags = {
-#    Name = "Manager"
+#    Name = "Standalone"
 #  }
 #}
 
+#create the proxy instance
+resource "aws_instance" "proxy" {
+#  count = 1
+  ami = "ami-0fc5d935ebf8bc3bc"
+  vpc_security_group_ids = [aws_security_group.final_security_group.id]
+  instance_type = "t2.micro"
+  user_data = templatefile("proxy_script.tpl", {
+    accessKey = "${var.access_key}"
+    secretKey = "${var.secret_key}"
+    token = "${var.token}"
+    worker1privateDNS = aws_instance.worker1.private_dns
+  }) # templatefile allows us to use terraform to pass instance information to another instance
+  tags = {
+    Name = "Proxy"
+  }
+}
+
+resource "aws_instance" "testing" {
+#  count = 1
+  ami = "ami-0fc5d935ebf8bc3bc"
+  vpc_security_group_ids = [aws_security_group.final_security_group.id]
+  instance_type = "t2.micro"
+#  user_data = templatefile("standalone_script.tpl", {
+#    runSysbench = 1     # 0 = true; 1 = false
+#  }) # templatefile allows us to use terraform to pass instance information to another instance
+  tags = {
+    Name = "Testing"
+  }
+}
+
+# create 1 t2.micro manager instance
+resource "aws_instance" "manager" {
+#  count = 1
+  ami = "ami-0fc5d935ebf8bc3bc"
+  vpc_security_group_ids = [aws_security_group.final_security_group.id]
+  instance_type = "t2.micro"
+  user_data = templatefile("manager_data_script.tpl", {
+    worker1privateDNS = aws_instance.worker1.private_dns
+  }) # templatefile allows us to use terraform to pass instance information to another instance
+  tags = {
+    Name = "Manager"
+  }
+}
+
 # create 3 t2.micro worker instances
-#resource "aws_instance" "worker1" {
-##  count         = 1
-#  ami           = "ami-0fc5d935ebf8bc3bc"
-#  vpc_security_group_ids = [aws_security_group.final_security_group.id]
-#  instance_type = "t2.micro"
-##  root_block_device {
-##    volume_size = 30
-##  }
-#  user_data = templatefile("worker_data_script.tpl", {
-#    accessKey = "${var.access_key}"
-#    secretKey = "${var.secret_key}"
-#    token = "${var.token}"
-#    serverID = "51"
-#  })
-##  depends_on = [aws_instance.manager]
-#  tags = {
-#    Name = "Worker1"
+resource "aws_instance" "worker1" {
+#  count         = 1
+  ami           = "ami-0fc5d935ebf8bc3bc"
+  vpc_security_group_ids = [aws_security_group.final_security_group.id]
+  instance_type = "t2.micro"
+#  root_block_device {
+#    volume_size = 30
 #  }
-#}
+  user_data = templatefile("worker_data_script.tpl", {
+    accessKey = "${var.access_key}"
+    secretKey = "${var.secret_key}"
+    token = "${var.token}"
+  })
+#  depends_on = [aws_instance.manager]
+  tags = {
+    Name = "Worker1"
+  }
+}
 #
 #resource "aws_instance" "worker2" {
 ##  count         = 1

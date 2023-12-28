@@ -21,6 +21,7 @@ SOURCE /tmp/sakila/sakila-db/sakila-schema.sql
 SOURCE /tmp/sakila/sakila-db/sakila-data.sql
 EOF
 
+if [ ${runSysbench} ]; then
 # run sysbench benchmark
 sudo apt-get install -y sysbench
 
@@ -43,3 +44,5 @@ sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=
 sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=sakila --mysql-user=myapp --mysql-password=myapp --threads=5 prepare
 sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=sakila --mysql-user=myapp --mysql-password=myapp --threads=5 run
 sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=sakila --mysql-user=myapp --mysql-password=myapp --threads=5 cleanup
+
+fi
