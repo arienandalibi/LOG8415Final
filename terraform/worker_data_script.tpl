@@ -29,7 +29,9 @@ export AWS_DEFAULT_REGION="us-east-1"
 export manager_private_dns=$(aws ssm get-parameter --name "/myapp/manager_private_dns" --query "Parameter.Value" --output text)
 
 echo $manager_private_dns > /home/ubuntu/manager_dns.log
+
 # attempt to run server on the data node
+sudo mkdir -p /opt/mysqlcluster/deploy
 cd /opt/mysqlcluster/deploy
 sudo mkdir ndb_data
 sudo mkdir conf

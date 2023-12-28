@@ -41,9 +41,9 @@ minPing=21474836
 maxPing=0
 fastest=" "
 pings=()
-for server in "\${servers[@]}"; do
+for server in "\$${servers[@]}"; do
     result=\$(ping -c 1 "\$server" | grep "time=" | awk -F'\''='\'' '\''{print \$4}'\'' | cut -d'\'' '\'' -f1)
-    ping=\$((10#\${result//"."}))
+    ping=\$((10#\$${result//"."}))
     pings+=(\$((\$ping * 100)))
     if [ "\$ping" -lt "\$minPing" ]; then
       minPing=\$ping
@@ -56,8 +56,8 @@ done
 
 command="UPDATE mysql_servers SET weight = CASE "
 i=0
-for server in "\${servers[@]}"; do
-    command+="WHEN hostname = \"\$server\" THEN \$((\${pings[i]} / \$maxPing)) "
+for server in "\$${servers[@]}"; do
+    command+="WHEN hostname = \"\$server\" THEN \$((\$${pings[i]} / \$maxPing)) "
     ((i++))
 done
 command+="END;"
@@ -68,6 +68,12 @@ EOF'
 
 sudo chmod +x ping_script.sh
 
+mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<EOF
+UPDATE global_variables SET variable_value='0.0.0.0:3306' WHERE variable_name='mysql-interfaces';
+SAVE MYSQL VARIABLES TO DISK
+EOF
+
+sudo systemctl restart proxysql
 
 mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<EOF
 UPDATE global_variables SET variable_value='monitor' WHERE variable_name='mysql-monitor_username';
@@ -84,9 +90,14 @@ INSERT INTO mysql_users(username, password, active, default_hostgroup) VALUES ('
 LOAD MYSQL USERS TO RUNTIME;
 SAVE MYSQL USERS TO DISK;
 
-INSERT INTO mysql_query_rules (rule_id, active, match_digest, destination_hostgroup, apply) VALUES (1,1,'^SELECT.*FOR UPDATE',0,1),
-(2, 1, '^SELECT .*', 1, 1),
-(3, 1, '^(INSERT|UPDATE|DELETE) .*', 0, 1);
+SET mysql-eventslog_default_log=1;
+SET mysql-eventslog_filename='queries.log';
+SET mysql-eventslog_format=2;
+LOAD MYSQL VARIABLES TO RUNTIME;
+SAVE MYSQL VARIABLES TO DISK;
+
+INSERT INTO mysql_query_rules (rule_id, active, match_digest, destination_hostgroup, log, apply) VALUES (1, 1, '^SELECT .*', 1, 1, 1),
+(2, 1, '^(INSERT|UPDATE|DELETE) .*', 0, 1, 1);
 LOAD MYSQL QUERY RULES TO RUNTIME;
 SAVE MYSQL QUERY RULES TO DISK;
 EOF

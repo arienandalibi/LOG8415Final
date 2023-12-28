@@ -55,7 +55,6 @@ datadir=/opt/mysqlcluster/deploy/ndb_data
 
 [ndbd]
 hostname=${worker1privateDNS}
-TcpBind_INADDR_ANY=1
 nodeid=3
 
 [mysqld]
@@ -109,7 +108,7 @@ sudo sed -i 's/) DEFAULT CHARSET=utf8mb4;/) ENGINE=NDBCLUSTER DEFAULT CHARSET=ut
 # add user to connect to database and add sakila DB
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
 CREATE USER 'myapp'@'%' IDENTIFIED BY 'myapp';
-GRANT ALL PRIVILEGES ON *.* TO 'myapp'@'%' IDENTIFIED BY 'myapp' WITH GRANT OPTION MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
+GRANT INSERT, UPDATE, DELETE ON *.* TO 'myapp'@'%' IDENTIFIED BY 'myapp' WITH GRANT OPTION MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
 FLUSH PRIVILEGES;
 SOURCE /tmp/sakila/sakila-db/sakila-schema.sql
 SOURCE /tmp/sakila/sakila-db/sakila-data.sql
