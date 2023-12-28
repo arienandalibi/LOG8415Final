@@ -23,231 +23,73 @@ export manager_private_dns=$(aws ssm get-parameter --name "/myapp/manager_privat
 
 echo $manager_private_dns > /home/ubuntu/manager_dns.log
 
-mysql -u admin -padmin -h 127.0.0.1 -P 6032 --prompt='ProxySQLAdmin> ' <<EOF
+# create script to ping servers and update ProxySQL rules accordingly
+# Since the script will only be running once per second, I will update weights
+# To distribute traffic evenly based on the ping
+# Otherwise, a surge in traffic will overload one server at a time, switching every second
+cd /home/ubuntu/
+sudo manager_private_dns=$manager_private_dns sh -c 'cat <<EOF >ping_script.sh
+#!/bin/bash
+
+#list of servers
+servers=($manager_private_dns ${worker1privateDNS})
+#servers=(ip-172-31-24-112.ec2.internal ip-172-31-24-20.ec2.internal)
+
+
+# Ping and see which one responds fastest
+minPing=21474836
+maxPing=0
+fastest=" "
+pings=()
+for server in "\${servers[@]}"; do
+    result=\$(ping -c 1 "\$server" | grep "time=" | awk -F'\''='\'' '\''{print \$4}'\'' | cut -d'\'' '\'' -f1)
+    ping=\$((10#\${result//"."}))
+    pings+=(\$((\$ping * 100)))
+    if [ "\$ping" -lt "\$minPing" ]; then
+      minPing=\$ping
+      fastest=\$server
+    fi
+    if [ "\$ping" -gt "\$maxPing" ]; then
+      maxPing=\$ping
+    fi
+done
+
+command="UPDATE mysql_servers SET weight = CASE "
+i=0
+for server in "\${servers[@]}"; do
+    command+="WHEN hostname = \"\$server\" THEN \$((\${pings[i]} / \$maxPing)) "
+    ((i++))
+done
+command+="END;"
+mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<LOL
+\$command
+LOL
+EOF'
+
+sudo chmod +x ping_script.sh
+
+
+mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<EOF
 UPDATE global_variables SET variable_value='monitor' WHERE variable_name='mysql-monitor_username';
 UPDATE global_variables SET variable_value='monitorpassword' WHERE variable_name='mysql-monitor_password';
 LOAD MYSQL VARIABLES TO RUNTIME;
 SAVE MYSQL VARIABLES TO DISK;
-
 
 INSERT INTO mysql_servers (hostname, port, hostgroup_id) VALUES ('$manager_private_dns', 3306, 0);
 INSERT INTO mysql_servers (hostname, port, hostgroup_id) VALUES ('${worker1privateDNS}', 3306, 1);
 LOAD MYSQL SERVERS TO RUNTIME;
 SAVE MYSQL SERVERS TO DISK;
 
+INSERT INTO mysql_users(username, password, active, default_hostgroup) VALUES ('myapp', 'myapp', 1, 0);
+LOAD MYSQL USERS TO RUNTIME;
+SAVE MYSQL USERS TO DISK;
 
+INSERT INTO mysql_query_rules (rule_id, active, match_digest, destination_hostgroup, apply) VALUES (1,1,'^SELECT.*FOR UPDATE',0,1),
+(2, 1, '^SELECT .*', 1, 1),
+(3, 1, '^(INSERT|UPDATE|DELETE) .*', 0, 1);
+LOAD MYSQL QUERY RULES TO RUNTIME;
+SAVE MYSQL QUERY RULES TO DISK;
 EOF
 
-
 # mysql_server_ping_log for ping information
-
-# config file
-##file proxysql.cfg
-#
-#########################################################################################
-## This config file is parsed using libconfig , and its grammar is described in:
-## http://www.hyperrealm.com/libconfig/libconfig_manual.html#Configuration-File-Grammar
-## Grammar is also copied at the end of this file
-#########################################################################################
-#
-#########################################################################################
-## IMPORTANT INFORMATION REGARDING THIS CONFIGURATION FILE:
-#########################################################################################
-## On startup, ProxySQL reads its config file (if present) to determine its datadir.
-## What happens next depends on if the database file (disk) is present in the defined
-## datadir (i.e. "/var/lib/proxysql/proxysql.db").
-##
-## If the database file is found, ProxySQL initializes its in-memory configuration from
-## the persisted on-disk database. So, disk configuration gets loaded into memory and
-## then propagated towards the runtime configuration.
-##
-## If the database file is not found and a config file exists, the config file is parsed
-## and its content is loaded into the in-memory database, to then be both saved on-disk
-## database and loaded at runtime.
-##
-## IMPORTANT: If a database file is found, the config file is NOT parsed. In this case
-##            ProxySQL initializes its in-memory configuration from the persisted on-disk
-##            database ONLY. In other words, the configuration found in the proxysql.cnf
-##            file is only used to initial the on-disk database read on the first startup.
-##
-## In order to FORCE a re-initialise of the on-disk database from the configuration file
-## the ProxySQL service should be started with "systemctl start proxysql-initial".
-##
-#########################################################################################
-#
-#datadir="/var/lib/proxysql"
-#errorlog="/var/lib/proxysql/proxysql.log"
-#
-#admin_variables=
-#{
-#        admin_credentials="admin:admin"
-##       mysql_ifaces="127.0.0.1:6032;/tmp/proxysql_admin.sock"
-#        mysql_ifaces="0.0.0.0:6032"
-##       refresh_interval=2000
-##       debug=true
-#}
-#
-#mysql_variables=
-#{
-#        threads=4
-#        max_connections=2048
-#        default_query_delay=0
-#        default_query_timeout=36000000
-#        have_compress=true
-#        poll_timeout=2000
-##       interfaces="0.0.0.0:6033;/tmp/proxysql.sock"
-#        interfaces="0.0.0.0:6033"
-#        default_schema="information_schema"
-#        stacksize=1048576
-#        server_version="5.5.30"
-#        connect_timeout_server=3000
-## make sure to configure monitor username and password
-## https://github.com/sysown/proxysql/wiki/Global-variables#mysql-monitor_username-mysql-monitor_password
-#        monitor_username="monitor"
-#        monitor_password="monitor"
-#        monitor_history=600000
-#        monitor_connect_interval=60000
-#        monitor_ping_interval=10000
-#        monitor_read_only_interval=1500
-#        monitor_read_only_timeout=500
-#        ping_interval_server_msec=120000
-#        ping_timeout_server=500
-#        commands_stats=true
-#        sessions_sort=true
-#        connect_retries_on_failure=10
-#}
-#
-#
-## defines all the MySQL servers
-#mysql_servers =
-#(
-##       {
-##               address = "127.0.0.1" # no default, required . If port is 0 , address is interpred as a Unix Socket Domain
-##               port = 3306           # no default, required . If port is 0 , address is interpred as a Unix Socket Domain
-##               hostgroup = 0           # no default, required
-##               status = "ONLINE"     # default: ONLINE
-##               weight = 1            # default: 1
-##               compression = 0       # default: 0
-##   max_replication_lag = 10  # default 0 . If greater than 0 and replication lag passes such threshold, the server is shunned
-##       },
-##       {
-##               address = "/var/lib/mysql/mysql.sock"
-##               port = 0
-##               hostgroup = 0
-##       },
-##       {
-##               address="127.0.0.1"
-##               port=21891
-##               hostgroup=0
-##               max_connections=200
-##       },
-##       { address="127.0.0.2" , port=3306 , hostgroup=0, max_connections=5 },
-##       { address="127.0.0.1" , port=21892 , hostgroup=1 },
-##       { address="127.0.0.1" , port=21893 , hostgroup=1 }
-##       { address="127.0.0.2" , port=3306 , hostgroup=1 },
-##       { address="127.0.0.3" , port=3306 , hostgroup=1 },
-##       { address="127.0.0.4" , port=3306 , hostgroup=1 },
-##       { address="/var/lib/mysql/mysql.sock" , port=0 , hostgroup=1 }
-#)
-#
-#
-## defines all the MySQL users
-#mysql_users:
-#(
-##       {
-##               username = "username" # no default , required
-##               password = "password" # default: ''
-##               default_hostgroup = 0 # default: 0
-##               active = 1            # default: 1
-##       },
-##       {
-##               username = "root"
-##               password = ""
-##               default_hostgroup = 0
-##               max_connections=1000
-##               default_schema="test"
-##               active = 1
-##       },
-##       { username = "user1" , password = "password" , default_hostgroup = 0 , active = 0 }
-#)
-#
-#
-#
-##defines MySQL Query Rules
-#mysql_query_rules:
-#(
-##       {
-##               rule_id=1
-##               active=1
-##               match_pattern="^SELECT .* FOR UPDATE$"
-##               destination_hostgroup=0
-##               apply=1
-##       },
-##       {
-##               rule_id=2
-##               active=1
-##               match_pattern="^SELECT"
-##               destination_hostgroup=1
-##               apply=1
-##       }
-#)
-#
-#scheduler=
-#(
-##  {
-##    id=1
-##    active=0
-##    interval_ms=10000
-##    filename="/var/lib/proxysql/proxysql_galera_checker.sh"
-##    arg1="0"
-##    arg2="0"
-##    arg3="0"
-##    arg4="1"
-##    arg5="/var/lib/proxysql/proxysql_galera_checker.log"
-##  }
-#)
-#
-#
-#mysql_replication_hostgroups=
-#(
-##        {
-##                writer_hostgroup=30
-##                reader_hostgroup=40
-##                comment="test repl 1"
-##       },
-##       {
-##                writer_hostgroup=50
-##                reader_hostgroup=60
-##                comment="test repl 2"
-##        }
-#)
-#
-#
-#
-#
-## http://www.hyperrealm.com/libconfig/libconfig_manual.html#Configuration-File-Grammar
-##
-## Below is the BNF grammar for configuration files. Comments and include directives are not part of the grammar, so they are not included here.
-##
-## configuration = setting-list | empty
-##
-## setting-list = setting | setting-list setting
-##
-## setting = name (":" | "=") value (";" | "," | empty)
-##
-## value = scalar-value | array | list | group
-##
-## value-list = value | value-list "," value
-##
-## scalar-value = boolean | integer | integer64 | hex | hex64 | float
-##                | string
-##
-## scalar-value-list = scalar-value | scalar-value-list "," scalar-value
-##
-## array = "[" (scalar-value-list | empty) "]"
-##
-## list = "(" (value-list | empty) ")"
-##
-## group = "{" (setting-list | empty) "}"
-##
-## empty =
+nohup bash -c "while true; do /home/ubuntu/ping_script.sh; sleep 1; done" > /dev/null 2>&1 &

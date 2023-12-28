@@ -29,10 +29,18 @@ cd conf
 sudo sh -c 'cat <<EOF >my.cnf
 [mysqld]
 ndbcluster
+server-id=50
 bind-address=0.0.0.0
 datadir=/opt/mysqlcluster/deploy/mysqld_data
 basedir=/opt/mysqlcluster/home/mysqlc
+log-bin=/opt/mysqlcluster/deploy/mysql-bin/mysql-bin
+ndb-log-bin=ON
+binlog-format=ROW
 port=3306
+ndb-connectstring=localhost:1186
+
+[mysql_cluster]
+ndb-connectstring=localhost:1186
 EOF'
 
 sudo sh -c 'cat <<EOF >config.ini
@@ -47,14 +55,15 @@ datadir=/opt/mysqlcluster/deploy/ndb_data
 
 [ndbd]
 hostname=${worker1privateDNS}
+TcpBind_INADDR_ANY=1
 nodeid=3
 
 [mysqld]
-ndbcluster
+hostname=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
 nodeid=50
 
 [mysqld]
-ndbcluster
+hostname=${worker1privateDNS}
 nodeid=51
 EOF'
 
@@ -68,7 +77,7 @@ sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgmd -f /opt/mysqlcluster/deploy/conf
 #start node server
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysqld --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --user=root &
 
-sleep 35
+sleep 20
 #set password so we can connect to it in script
 /opt/mysqlcluster/home/mysqlc/bin/mysqladmin -u root password 'root'
 
@@ -87,6 +96,15 @@ sudo tar xvf sakila-db.tar.gz
 #sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h ${worker1privateDNS} -u repl_user -p'password' <<EOF
 #START SLAVE;
 #EOF
+
+# change database engine from InnoDB to NDBCluster for proper replication
+# SQL Node running on different servers can now access data
+cd /tmp/sakila/sakila-db
+sudo sed -i 's/InnoDB/NDBCLUSTER/g' sakila-schema.sql
+#remove fulltext index as it isn't supported by NDBCLUSTER
+sudo sed -i '/  FULLTEXT KEY idx_title_description (title,description)/d' sakila-schema.sql
+sudo sed -i '203s/  PRIMARY KEY  (film_id),/  PRIMARY KEY  (film_id)/' sakila-schema.sql
+sudo sed -i 's/) DEFAULT CHARSET=utf8mb4;/) ENGINE=NDBCLUSTER DEFAULT CHARSET=utf8mb4;/g' sakila-schema.sql
 
 # add user to connect to database and add sakila DB
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF

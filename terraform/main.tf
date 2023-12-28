@@ -81,18 +81,18 @@ resource "aws_instance" "proxy" {
   }
 }
 
-resource "aws_instance" "testing" {
-#  count = 1
-  ami = "ami-0fc5d935ebf8bc3bc"
-  vpc_security_group_ids = [aws_security_group.final_security_group.id]
-  instance_type = "t2.micro"
-#  user_data = templatefile("standalone_script.tpl", {
-#    runSysbench = 1     # 0 = true; 1 = false
-#  }) # templatefile allows us to use terraform to pass instance information to another instance
-  tags = {
-    Name = "Testing"
-  }
-}
+#resource "aws_instance" "testing" {
+##  count = 1
+#  ami = "ami-0fc5d935ebf8bc3bc"
+#  vpc_security_group_ids = [aws_security_group.final_security_group.id]
+#  instance_type = "t2.micro"
+##  user_data = templatefile("standalone_script.tpl", {
+##    runSysbench = 1     # 0 = true; 1 = false
+##  }) # templatefile allows us to use terraform to pass instance information to another instance
+#  tags = {
+#    Name = "Testing"
+#  }
+#}
 
 # create 1 t2.micro manager instance
 resource "aws_instance" "manager" {
@@ -121,6 +121,7 @@ resource "aws_instance" "worker1" {
     accessKey = "${var.access_key}"
     secretKey = "${var.secret_key}"
     token = "${var.token}"
+    serverID = "51"
   })
 #  depends_on = [aws_instance.manager]
   tags = {
