@@ -27,14 +27,22 @@ echo $manager_private_dns > /home/ubuntu/manager_dns.log
 # Since the script will only be running once per second, I will update weights
 # To distribute traffic evenly based on the ping
 # Otherwise, a surge in traffic will overload one server at a time, switching every second
+# This is useful while we're running sysbench benchmarks, which sends a lot of traffic at once.
+# However, if we want to only send traffic to the server with the lowest ping,
+# we can change our for loop which builds the command variable to check if we're dealing with the fastest server or not.
+# If we're dealing with the fastest server, we add to the command to:
+# WHEN hostname = '$server' THEN 'ONLINE'
+# and if we're not dealing with the fastest server, we add to the command:
+# WHEN hostname = '$server' THEN 'OFFLINE_SOFT'
+# By setting a server's status as 'OFFLINE_SOFT', we're telling ProxySQL not to establish any new connections with it,
+# while safely terminating any connections which have already been established.
+
 cd /home/ubuntu/
 sudo manager_private_dns=$manager_private_dns sh -c 'cat <<EOF >ping_script.sh
 #!/bin/bash
 
 #list of servers
-servers=($manager_private_dns ${worker1privateDNS})
-#servers=(ip-172-31-24-112.ec2.internal ip-172-31-24-20.ec2.internal)
-
+servers=($manager_private_dns ${worker1privateDNS} ${worker2privateDNS} ${worker3privateDNS})
 
 # Ping and see which one responds fastest
 minPing=21474836
@@ -68,13 +76,6 @@ EOF'
 
 sudo chmod +x ping_script.sh
 
-#mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<EOF
-#UPDATE global_variables SET variable_value='0.0.0.0:3306' WHERE variable_name='mysql-interfaces';
-#SAVE MYSQL VARIABLES TO DISK
-#EOF
-#
-#sudo systemctl restart proxysql
-
 mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<EOF
 UPDATE global_variables SET variable_value='monitor' WHERE variable_name='mysql-monitor_username';
 UPDATE global_variables SET variable_value='monitorpassword' WHERE variable_name='mysql-monitor_password';
@@ -83,6 +84,8 @@ SAVE MYSQL VARIABLES TO DISK;
 
 INSERT INTO mysql_servers (hostname, port, hostgroup_id) VALUES ('$manager_private_dns', 3306, 0);
 INSERT INTO mysql_servers (hostname, port, hostgroup_id) VALUES ('${worker1privateDNS}', 3306, 1);
+INSERT INTO mysql_servers (hostname, port, hostgroup_id) VALUES ('${worker2privateDNS}', 3306, 1);
+INSERT INTO mysql_servers (hostname, port, hostgroup_id) VALUES ('${worker3privateDNS}', 3306, 1);
 LOAD MYSQL SERVERS TO RUNTIME;
 SAVE MYSQL SERVERS TO DISK;
 
@@ -102,5 +105,35 @@ LOAD MYSQL QUERY RULES TO RUNTIME;
 SAVE MYSQL QUERY RULES TO DISK;
 EOF
 
-# mysql_server_ping_log for ping information
+## If we want to use the direct hit pattern, instead of running the script, we change the rule to send all traffic to the master node
+#mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<EOF
+#DELETE FROM mysql_query_rules;
+#INSERT INTO mysql_query_rules (rule_id, active, match_digest, destination_hostgroup, log, apply) VALUES (1, 1, '^.*$', 0, 1, 1);
+#LOAD MYSQL QUERY RULES TO RUNTIME;
+#SAVE MYSQL QUERY RULES TO DISK;
+#EOF
+
+# If we want to use the random pattern, we can not do anything, since ProxySQL will automatically assign
+# Weights of 1 to each server, meaning each server will be used the same amount, and requests will be essentially random.
+# Otherwise, we can use the following script:
+##!/bin/bash
+#servers=($manager_private_dns ${worker1privateDNS} ${worker2privateDNS} ${worker3privateDNS})
+#command="UPDATE mysql_servers SET status = CASE "
+#i=0
+#random=$((RANDOM % 4))
+#for server in "$${servers[@]}"; do
+#    if [ $i -eq $random ]; then
+#      command+="WHEN hostname = '$server' THEN 'ONLINE' "
+#    else
+#      command+="WHEN hostname = '$server' THEN 'OFFLINE_SOFT' "
+#    fi
+#    ((i++))
+#done
+#command+="END;"
+#mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<LOL
+#\$command
+#LOL
+
+
+# If we want to use the customized proxy pattern, we run our script from above which pings the servers and updates our preferred server
 nohup bash -c "while true; do /home/ubuntu/ping_script.sh; sleep 1; done" > /dev/null 2>&1 &

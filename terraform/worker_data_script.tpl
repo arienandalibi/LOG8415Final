@@ -2,9 +2,8 @@
 
 exec > /home/ubuntu/startup.log 2>&1
 
-# update apt-get and install dependencies
+# update apt-get to install dependencies
 sudo apt-get update
-#sudo apt-get install -y gedit
 
 # install MySQL Cluster
 # common for workers too
@@ -56,64 +55,24 @@ ndb-log-bin=ON
 ndb-connectstring=$manager_private_dns:1186
 EOF'
 
-#sudo sh -c 'cat <<EOF >config.ini
-#[ndbd default]
-#noofreplicas=1
-#datadir=/opt/mysqlcluster/deploy/ndb_data
-#
-#[ndbd]
-#hostname=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
-#nodeid=3
-#
-#[mysqld]
-#nodeid=51
-#EOF'
-
 # initialize the database system files
 cd /opt/mysqlcluster/home/mysqlc
 sudo scripts/mysql_install_db --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --datadir=/opt/mysqlcluster/deploy/mysqld_data
 
-#sleep 10
-#echo "Just show, no connect"
-#sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgm -e show
-#echo "With connect statement"
-#sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgm -e "connect $manager_private_dns"
-
-#sudo /opt/mysqlcluster/home/mysqlc/bin/mysql_upgrade --host $manager_private_dns -u myapp -p'myapp'  #--upgrade-system-tables
-
 # run the data node
 sleep 10
 sudo /opt/mysqlcluster/home/mysqlc/bin/ndbd --initial -c $manager_private_dns:1186
-sleep 10
+sleep 20
 
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysqld --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --user=root &
 sleep 15
 
 /opt/mysqlcluster/home/mysqlc/bin/mysqladmin -u root password 'root'
 
-## start replication
-#sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
-#CHANGE MASTER TO
-#  MASTER_HOST='$manager_private_dns',
-#  MASTER_PORT=3306,
-#  MASTER_USER='repl_user',
-#  MASTER_PASSWORD='password',
-#  MASTER_LOG_FILE='',
-#  MASTER_LOG_POS=4;
-#EOF
-#
-##create user for replication
-#sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
-#CREATE USER 'repl_user'@'%' IDENTIFIED BY 'password';
-#GRANT REPLICATION SLAVE ON *.* TO 'repl_user'@'%';
-#GRANT SUPER ON *.* TO 'repl_user'@'%';
-#EOF
-
-
 #create user for remote access, make sure this user only has read privileges
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
 CREATE USER 'myapp'@'%' IDENTIFIED BY 'myapp';
-GRANT ALL PRIVILEGES ON *.* TO 'myapp'@'%' IDENTIFIED BY 'myapp' WITH GRANT OPTION MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
+GRANT SELECT ON *.* TO 'myapp'@'%' IDENTIFIED BY 'myapp' WITH GRANT OPTION MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
 FLUSH PRIVILEGES;
 EOF
 

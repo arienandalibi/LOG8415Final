@@ -51,12 +51,20 @@ datadir=/opt/mysqlcluster/deploy/ndb_data
 nodeid=1
 
 [ndbd default]
-noofreplicas=1
+noofreplicas=3
 datadir=/opt/mysqlcluster/deploy/ndb_data
 
 [ndbd]
 hostname=${worker1privateDNS}
 nodeid=3
+
+[ndbd]
+hostname=${worker2privateDNS}
+nodeid=4
+
+[ndbd]
+hostname=${worker3privateDNS}
+nodeid=5
 
 [mysqld]
 hostname=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
@@ -65,6 +73,14 @@ nodeid=50
 [mysqld]
 hostname=${worker1privateDNS}
 nodeid=51
+
+[mysqld]
+hostname=${worker2privateDNS}
+nodeid=52
+
+[mysqld]
+hostname=${worker3privateDNS}
+nodeid=53
 EOF'
 
 # initialize the database system files
@@ -77,7 +93,7 @@ sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgmd -f /opt/mysqlcluster/deploy/conf
 #start node server
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysqld --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --user=root &
 
-sleep 35
+sleep 50
 #set password so we can connect to it in script
 /opt/mysqlcluster/home/mysqlc/bin/mysqladmin -u root password 'root'
 
@@ -87,16 +103,6 @@ cd /tmp/sakila/
 sudo wget https://downloads.mysql.com/docs/sakila-db.tar.gz
 sudo tar xvf sakila-db.tar.gz
 
-##create user responsible for replication
-#sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
-#CREATE USER 'repl_user'@'%' IDENTIFIED BY 'password';
-#GRANT REPLICATION SLAVE ON *.* TO 'repl_user'@'%';
-#EOF
-#
-#sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h ${worker1privateDNS} -u repl_user -p'password' <<EOF
-#START SLAVE;
-#EOF
-
 # change database engine from InnoDB to NDBCluster for proper replication
 # SQL Node running on different servers can now access data
 cd /tmp/sakila/sakila-db
@@ -105,7 +111,6 @@ sudo sed -i 's/InnoDB/NDBCLUSTER/g' sakila-schema.sql
 sudo sed -i '/  FULLTEXT KEY idx_title_description (title,description)/d' sakila-schema.sql
 sudo sed -i '203s/  PRIMARY KEY  (film_id),/  PRIMARY KEY  (film_id)/' sakila-schema.sql
 sudo sed -i 's/) DEFAULT CHARSET=utf8mb4;/) ENGINE=NDBCLUSTER DEFAULT CHARSET=utf8mb4;/g' sakila-schema.sql
-#sudo sed -i 's/CREATE DEFINER=CURRENT_USER SQL SECURITY INVOKER VIEW actor_info/CREATE ALGORITHM=MERGE DEFINER=CURRENT_USER SQL SECURITY INVOKER VIEW actor_info/g' sakila-schema.sql
 
 # add user to connect to database and add sakila DB
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
@@ -122,3 +127,24 @@ CREATE USER 'monitor'@'%' IDENTIFIED BY 'monitorpassword';
 GRANT SELECT, PROCESS ON *.* TO 'monitor'@'%';
 FLUSH PRIVILEGES;
 EOF
+
+##run benchmarks
+##read only
+#sudo sysbench /usr/share/sysbench/oltp_read_only.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=root --mysql-password=root prepare
+#sudo sysbench /usr/share/sysbench/oltp_read_only.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=root --mysql-password=root run
+#sudo sysbench /usr/share/sysbench/oltp_read_only.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=root --mysql-password=root cleanup
+#
+##read only 5 threads
+#sudo sysbench /usr/share/sysbench/oltp_read_only.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=root --mysql-password=root --threads=5 prepare
+#sudo sysbench /usr/share/sysbench/oltp_read_only.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=root --mysql-password=root --threads=5 run
+#sudo sysbench /usr/share/sysbench/oltp_read_only.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=root --mysql-password=root --threads=5 cleanup
+#
+##read/write
+#sudo sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=root --mysql-password=root prepare
+#sudo sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=root --mysql-password=root run
+#sudo sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=root --mysql-password=root cleanup
+#
+##read/write 5 threads
+#sudo sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=root --mysql-password=root --threads=5 prepare
+#sudo sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=root --mysql-password=root --threads=5 run
+#sudo sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=root --mysql-password=root --threads=5 cleanup

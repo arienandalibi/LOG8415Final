@@ -91,6 +91,8 @@ resource "aws_instance" "proxy" {
     secretKey = "${var.secret_key}"
     token = "${var.token}"
     worker1privateDNS = aws_instance.worker1.private_dns
+    worker2privateDNS = aws_instance.worker2.private_dns
+    worker3privateDNS = aws_instance.worker3.private_dns
   }) # templatefile allows us to use terraform to pass instance information to another instance
   tags = {
     Name = "Proxy"
@@ -136,6 +138,8 @@ resource "aws_instance" "manager" {
 #  key_name = "mysql_kp"
   user_data = templatefile("manager_data_script.tpl", {
     worker1privateDNS = aws_instance.worker1.private_dns
+    worker2privateDNS = aws_instance.worker2.private_dns
+    worker3privateDNS = aws_instance.worker3.private_dns
   }) # templatefile allows us to use terraform to pass instance information to another instance
   tags = {
     Name = "Manager"
@@ -148,7 +152,6 @@ resource "aws_instance" "worker1" {
   ami           = "ami-0fc5d935ebf8bc3bc"
   vpc_security_group_ids = [aws_security_group.final_security_group.id]
   instance_type = "t2.micro"
-#  key_name = "mysql_kp"
   user_data = templatefile("worker_data_script.tpl", {
     accessKey = "${var.access_key}"
     secretKey = "${var.secret_key}"
@@ -159,34 +162,38 @@ resource "aws_instance" "worker1" {
     Name = "Worker1"
   }
 }
-#
-#resource "aws_instance" "worker2" {
-##  count         = 1
-#  ami           = "ami-0fc5d935ebf8bc3bc"
-#  vpc_security_group_ids = [aws_security_group.final_security_group.id]
-#  instance_type = "t2.micro"
-##  root_block_device {
-##    volume_size = 30
-##  }
-#  user_data = file("worker_data_script.tpl")
-#  tags = {
-#    Name = "Worker2"
-#  }
-#}
-#
-#resource "aws_instance" "worker3" {
-##  count         = 1
-#  ami           = "ami-0fc5d935ebf8bc3bc"
-#  vpc_security_group_ids = [aws_security_group.final_security_group.id]
-#  instance_type = "t2.micro"
-##  root_block_device {
-##    volume_size = 30
-##  }
-#  user_data = file("worker_data_script.tpl")
-#  tags = {
-#    Name = "Worker3"
-#  }
-#}
+
+resource "aws_instance" "worker2" {
+#  count         = 1
+  ami           = "ami-0fc5d935ebf8bc3bc"
+  vpc_security_group_ids = [aws_security_group.final_security_group.id]
+  instance_type = "t2.micro"
+  user_data = templatefile("worker_data_script.tpl", {
+    accessKey = "${var.access_key}"
+    secretKey = "${var.secret_key}"
+    token = "${var.token}"
+    serverID = "52"
+  })
+  tags = {
+    Name = "Worker2"
+  }
+}
+
+resource "aws_instance" "worker3" {
+#  count         = 1
+  ami           = "ami-0fc5d935ebf8bc3bc"
+  vpc_security_group_ids = [aws_security_group.final_security_group.id]
+  instance_type = "t2.micro"
+  user_data = templatefile("worker_data_script.tpl", {
+    accessKey = "${var.access_key}"
+    secretKey = "${var.secret_key}"
+    token = "${var.token}"
+    serverID = "53"
+  })
+  tags = {
+    Name = "Worker3"
+  }
+}
 
 # output the instance ids for the workers
 #output "t2_instance" {
