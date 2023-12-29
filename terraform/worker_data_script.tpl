@@ -47,11 +47,12 @@ datadir=/opt/mysqlcluster/deploy/mysqld_data
 basedir=/opt/mysqlcluster/home/mysqlc
 log-bin=/opt/mysqlcluster/deploy/mysql-bin/mysql-bin
 ndb-log-bin=ON
-binlog-format=ROW
+binlog-format=STATEMENT
 port=3306
 ndb-connectstring=$manager_private_dns:1186
 
 [mysql_cluster]
+ndb-log-bin=ON
 ndb-connectstring=$manager_private_dns:1186
 EOF'
 
@@ -86,7 +87,7 @@ sudo /opt/mysqlcluster/home/mysqlc/bin/ndbd --initial -c $manager_private_dns:11
 sleep 10
 
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysqld --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --user=root &
-sleep 20
+sleep 15
 
 /opt/mysqlcluster/home/mysqlc/bin/mysqladmin -u root password 'root'
 
@@ -112,7 +113,7 @@ sleep 20
 #create user for remote access, make sure this user only has read privileges
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
 CREATE USER 'myapp'@'%' IDENTIFIED BY 'myapp';
-GRANT SELECT ON *.* TO 'myapp'@'%' IDENTIFIED BY 'myapp' WITH GRANT OPTION MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
+GRANT ALL PRIVILEGES ON *.* TO 'myapp'@'%' IDENTIFIED BY 'myapp' WITH GRANT OPTION MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
 FLUSH PRIVILEGES;
 EOF
 

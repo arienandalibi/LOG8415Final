@@ -35,11 +35,12 @@ datadir=/opt/mysqlcluster/deploy/mysqld_data
 basedir=/opt/mysqlcluster/home/mysqlc
 log-bin=/opt/mysqlcluster/deploy/mysql-bin/mysql-bin
 ndb-log-bin=ON
-binlog-format=ROW
+binlog-format=STATEMENT
 port=3306
 ndb-connectstring=localhost:1186
 
 [mysql_cluster]
+ndb-log-bin=ON
 ndb-connectstring=localhost:1186
 EOF'
 
@@ -68,7 +69,7 @@ EOF'
 
 # initialize the database system files
 cd /opt/mysqlcluster/home/mysqlc
-sudo scripts/mysql_install_db --no-defaults --datadir=/opt/mysqlcluster/deploy/mysqld_data
+sudo scripts/mysql_install_db --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --datadir=/opt/mysqlcluster/deploy/mysqld_data
 
 # run the management service
 sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgmd -f /opt/mysqlcluster/deploy/conf/config.ini --initial --configdir=/opt/mysqlcluster/deploy/conf/
@@ -76,7 +77,7 @@ sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgmd -f /opt/mysqlcluster/deploy/conf
 #start node server
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysqld --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --user=root &
 
-sleep 20
+sleep 35
 #set password so we can connect to it in script
 /opt/mysqlcluster/home/mysqlc/bin/mysqladmin -u root password 'root'
 
@@ -104,11 +105,12 @@ sudo sed -i 's/InnoDB/NDBCLUSTER/g' sakila-schema.sql
 sudo sed -i '/  FULLTEXT KEY idx_title_description (title,description)/d' sakila-schema.sql
 sudo sed -i '203s/  PRIMARY KEY  (film_id),/  PRIMARY KEY  (film_id)/' sakila-schema.sql
 sudo sed -i 's/) DEFAULT CHARSET=utf8mb4;/) ENGINE=NDBCLUSTER DEFAULT CHARSET=utf8mb4;/g' sakila-schema.sql
+#sudo sed -i 's/CREATE DEFINER=CURRENT_USER SQL SECURITY INVOKER VIEW actor_info/CREATE ALGORITHM=MERGE DEFINER=CURRENT_USER SQL SECURITY INVOKER VIEW actor_info/g' sakila-schema.sql
 
 # add user to connect to database and add sakila DB
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
 CREATE USER 'myapp'@'%' IDENTIFIED BY 'myapp';
-GRANT INSERT, UPDATE, DELETE ON *.* TO 'myapp'@'%' IDENTIFIED BY 'myapp' WITH GRANT OPTION MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
+GRANT ALL PRIVILEGES ON *.* TO 'myapp'@'%' IDENTIFIED BY 'myapp' WITH GRANT OPTION MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
 FLUSH PRIVILEGES;
 SOURCE /tmp/sakila/sakila-db/sakila-schema.sql
 SOURCE /tmp/sakila/sakila-db/sakila-data.sql

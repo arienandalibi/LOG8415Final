@@ -68,12 +68,12 @@ EOF'
 
 sudo chmod +x ping_script.sh
 
-mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<EOF
-UPDATE global_variables SET variable_value='0.0.0.0:3306' WHERE variable_name='mysql-interfaces';
-SAVE MYSQL VARIABLES TO DISK
-EOF
-
-sudo systemctl restart proxysql
+#mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<EOF
+#UPDATE global_variables SET variable_value='0.0.0.0:3306' WHERE variable_name='mysql-interfaces';
+#SAVE MYSQL VARIABLES TO DISK
+#EOF
+#
+#sudo systemctl restart proxysql
 
 mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<EOF
 UPDATE global_variables SET variable_value='monitor' WHERE variable_name='mysql-monitor_username';

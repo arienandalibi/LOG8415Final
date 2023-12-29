@@ -51,18 +51,33 @@ resource "aws_ssm_parameter" "manager_private_dns" {
 }
 
 #create the standalone instance
-#resource "aws_instance" "standalone" {
-##  count = 1
-#  ami = "ami-0fc5d935ebf8bc3bc"
-#  vpc_security_group_ids = [aws_security_group.final_security_group.id]
-#  instance_type = "t2.micro"
-##  user_data = templatefile("standalone_script.tpl", {
-##    runSysbench = 1     # 0 = true; 1 = false
-##  }) # templatefile allows us to use terraform to pass instance information to another instance
-#  tags = {
-#    Name = "Standalone"
-#  }
-#}
+resource "aws_instance" "standalone" {
+#  count = 1
+  ami = "ami-0fc5d935ebf8bc3bc"
+  vpc_security_group_ids = [aws_security_group.final_security_group.id]
+  instance_type = "t2.micro"
+#  user_data = templatefile("standalone_script.tpl", {
+#    runSysbench = 1     # 0 = true; 1 = false
+#  }) # templatefile allows us to use terraform to pass instance information to another instance
+  tags = {
+    Name = "Standalone"
+  }
+}
+
+#create an instance to execute benchmarking of cloud implementations
+resource "aws_instance" "tester" {
+#  count = 1
+  ami = "ami-0fc5d935ebf8bc3bc"
+  vpc_security_group_ids = [aws_security_group.final_security_group.id]
+  instance_type = "t2.micro"
+  user_data = templatefile("tester_script.tpl", {
+    mysql_kp = file("mysql_kp.pem")
+    gatekeeperPrivateDNS = aws_instance.gatekeeper.private_dns
+  }) # templatefile allows us to use terraform to pass instance information to another instance
+  tags = {
+    Name = "Tester"
+  }
+}
 
 #create the proxy instance
 resource "aws_instance" "proxy" {
@@ -70,6 +85,7 @@ resource "aws_instance" "proxy" {
   ami = "ami-0fc5d935ebf8bc3bc"
   vpc_security_group_ids = [aws_security_group.final_security_group.id]
   instance_type = "t2.micro"
+  key_name = "mysql_kp"
   user_data = templatefile("proxy_script.tpl", {
     accessKey = "${var.access_key}"
     secretKey = "${var.secret_key}"
@@ -81,18 +97,35 @@ resource "aws_instance" "proxy" {
   }
 }
 
-#resource "aws_instance" "testing" {
-##  count = 1
-#  ami = "ami-0fc5d935ebf8bc3bc"
-#  vpc_security_group_ids = [aws_security_group.final_security_group.id]
-#  instance_type = "t2.micro"
-##  user_data = templatefile("standalone_script.tpl", {
-##    runSysbench = 1     # 0 = true; 1 = false
-##  }) # templatefile allows us to use terraform to pass instance information to another instance
-#  tags = {
-#    Name = "Testing"
-#  }
-#}
+resource "aws_instance" "trustedhost" {
+#  count = 1
+  ami = "ami-0fc5d935ebf8bc3bc"
+  vpc_security_group_ids = [aws_security_group.final_security_group.id]
+  instance_type = "t2.micro"
+  key_name = "mysql_kp"
+  user_data = templatefile("trustedhost_script.tpl", {
+    mysql_kp = file("mysql_kp.pem")
+    proxyPrivateDNS = aws_instance.proxy.private_dns
+  }) # templatefile allows us to use terraform to pass instance information to another instance
+  tags = {
+    Name = "Trusted Host"
+  }
+}
+
+resource "aws_instance" "gatekeeper" {
+#  count = 1
+  ami = "ami-0fc5d935ebf8bc3bc"
+  vpc_security_group_ids = [aws_security_group.final_security_group.id]
+  instance_type = "t2.micro"
+  key_name = "mysql_kp"
+  user_data = templatefile("gatekeeper_script.tpl", {
+    mysql_kp = file("mysql_kp.pem")
+    trustedhostPrivateDNS = aws_instance.trustedhost.private_dns
+  }) # templatefile allows us to use terraform to pass instance information to another instance
+  tags = {
+    Name = "Gatekeeper"
+  }
+}
 
 # create 1 t2.micro manager instance
 resource "aws_instance" "manager" {
@@ -100,6 +133,7 @@ resource "aws_instance" "manager" {
   ami = "ami-0fc5d935ebf8bc3bc"
   vpc_security_group_ids = [aws_security_group.final_security_group.id]
   instance_type = "t2.micro"
+#  key_name = "mysql_kp"
   user_data = templatefile("manager_data_script.tpl", {
     worker1privateDNS = aws_instance.worker1.private_dns
   }) # templatefile allows us to use terraform to pass instance information to another instance
@@ -114,16 +148,13 @@ resource "aws_instance" "worker1" {
   ami           = "ami-0fc5d935ebf8bc3bc"
   vpc_security_group_ids = [aws_security_group.final_security_group.id]
   instance_type = "t2.micro"
-#  root_block_device {
-#    volume_size = 30
-#  }
+#  key_name = "mysql_kp"
   user_data = templatefile("worker_data_script.tpl", {
     accessKey = "${var.access_key}"
     secretKey = "${var.secret_key}"
     token = "${var.token}"
     serverID = "51"
   })
-#  depends_on = [aws_instance.manager]
   tags = {
     Name = "Worker1"
   }
