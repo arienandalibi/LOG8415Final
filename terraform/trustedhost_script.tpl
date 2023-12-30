@@ -11,5 +11,5 @@ ${mysql_kp}
 EOF'
 
 sudo chmod 600 /home/ubuntu/mysql_kp.pem
-
+sleep 10
 sudo ssh -fN -L 3306:localhost:6033 -i mysql_kp.pem -o StrictHostKeyChecking=no ubuntu@${proxyPrivateDNS}

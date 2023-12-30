@@ -37,3 +37,18 @@ sudo sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysq
 sudo sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=myapp --mysql-password=myapp --threads=5 prepare
 sudo sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=myapp --mysql-password=myapp --threads=5 run
 sudo sysbench /usr/share/sysbench/oltp_read_write.lua --table-size=100000 --mysql-db=sakila --mysql-host=127.0.0.1 --mysql-user=myapp --mysql-password=myapp --threads=5 cleanup
+
+
+# testing python proxy
+export DEBIAN_FRONTEND=noninteractive
+sudo apt-get update
+sudo apt-get install -y python3-pip
+#sudo pip install mysql-connector-python
+sudo pip install pexpect
+
+cd /home/ubuntu/
+sudo tee proxy.py <<EOF
+${proxy_py}
+EOF
+
+nohup python3 proxy.py > output.log 2>&1 &

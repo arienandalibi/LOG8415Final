@@ -29,18 +29,10 @@ cd conf
 sudo sh -c 'cat <<EOF >my.cnf
 [mysqld]
 ndbcluster
-server-id=50
 bind-address=0.0.0.0
 datadir=/opt/mysqlcluster/deploy/mysqld_data
 basedir=/opt/mysqlcluster/home/mysqlc
-log-bin=/opt/mysqlcluster/deploy/mysql-bin/mysql-bin
-ndb-log-bin=ON
-binlog-format=STATEMENT
 port=3306
-ndb-connectstring=localhost:1186
-
-[mysql_cluster]
-ndb-log-bin=ON
 ndb-connectstring=localhost:1186
 EOF'
 
@@ -67,25 +59,12 @@ hostname=${worker3privateDNS}
 nodeid=5
 
 [mysqld]
-hostname=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
 nodeid=50
-
-[mysqld]
-hostname=${worker1privateDNS}
-nodeid=51
-
-[mysqld]
-hostname=${worker2privateDNS}
-nodeid=52
-
-[mysqld]
-hostname=${worker3privateDNS}
-nodeid=53
 EOF'
 
 # initialize the database system files
 cd /opt/mysqlcluster/home/mysqlc
-sudo scripts/mysql_install_db --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --datadir=/opt/mysqlcluster/deploy/mysqld_data
+sudo scripts/mysql_install_db --no-defaults --datadir=/opt/mysqlcluster/deploy/mysqld_data
 
 # run the management service
 sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgmd -f /opt/mysqlcluster/deploy/conf/config.ini --initial --configdir=/opt/mysqlcluster/deploy/conf/
@@ -103,19 +82,12 @@ cd /tmp/sakila/
 sudo wget https://downloads.mysql.com/docs/sakila-db.tar.gz
 sudo tar xvf sakila-db.tar.gz
 
-# change database engine from InnoDB to NDBCluster for proper replication
-# SQL Node running on different servers can now access data
-cd /tmp/sakila/sakila-db
-sudo sed -i 's/InnoDB/NDBCLUSTER/g' sakila-schema.sql
-#remove fulltext index as it isn't supported by NDBCLUSTER
-sudo sed -i '/  FULLTEXT KEY idx_title_description (title,description)/d' sakila-schema.sql
-sudo sed -i '203s/  PRIMARY KEY  (film_id),/  PRIMARY KEY  (film_id)/' sakila-schema.sql
-sudo sed -i 's/) DEFAULT CHARSET=utf8mb4;/) ENGINE=NDBCLUSTER DEFAULT CHARSET=utf8mb4;/g' sakila-schema.sql
-
 # add user to connect to database and add sakila DB
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysql -h 127.0.0.1 -u root -p'root' <<EOF
 CREATE USER 'myapp'@'%' IDENTIFIED BY 'myapp';
+CREATE USER 'myapp'@'localhost' IDENTIFIED BY 'myapp';
 GRANT ALL PRIVILEGES ON *.* TO 'myapp'@'%' IDENTIFIED BY 'myapp' WITH GRANT OPTION MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
+GRANT ALL PRIVILEGES ON *.* TO 'myapp'@'localhost' IDENTIFIED BY 'myapp' WITH GRANT OPTION MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
 FLUSH PRIVILEGES;
 SOURCE /tmp/sakila/sakila-db/sakila-schema.sql
 SOURCE /tmp/sakila/sakila-db/sakila-data.sql
