@@ -35,7 +35,7 @@ export manager_private_dns=$(aws ssm get-parameter --name "/myapp/manager_privat
 # and if we're not dealing with the fastest server, we add to the command:
 # WHEN port = '$port' THEN 'OFFLINE_SOFT'
 # By setting a server's status as 'OFFLINE_SOFT', we're telling ProxySQL not to establish any new connections with it,
-# while safely terminating any connections which have already been established.
+# while safely concluding any connections which have already been established.
 # The script is provided as "strict_ping_script.sh", which can be substituted below using
 # a provisioner "file" construct in terraform to put the script in the instance's home directory
 # I did this before I found out I could do that

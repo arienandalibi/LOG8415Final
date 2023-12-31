@@ -26,7 +26,7 @@ command="UPDATE mysql_servers SET status = CASE "
 i=0
 port=3306
 for server in "$${servers[@]}"; do
-    if [ "$${pings[i]}" -eq "$minPing" ]; then
+    if [ "$${pings[i]}" -eq "$minPing" ] || [ "$server" == "$${servers[0]}" ]; then
       command+="WHEN port = $port THEN 'ONLINE' "
     else
       command+="WHEN port = $port THEN 'OFFLINE_SOFT' "
