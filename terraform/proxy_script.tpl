@@ -21,7 +21,7 @@ export AWS_DEFAULT_REGION="us-east-1"
 
 export manager_private_dns=$(aws ssm get-parameter --name "/myapp/manager_private_dns" --query "Parameter.Value" --output text)
 
-#echo $manager_private_dns > /home/ubuntu/manager_dns.log
+echo $manager_private_dns > /home/ubuntu/manager_dns.log
 
 # create script to ping servers and update ProxySQL rules accordingly
 # Since the script will only be running once per second, I will update weights
