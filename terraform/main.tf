@@ -185,6 +185,13 @@ resource "aws_security_group" "trustedhost_security_group" {
     protocol    = "tcp"
     security_groups = [aws_security_group.proxy_security_group.id] # only allow MySQL to proxy
   }
+
+  egress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    security_groups = [aws_security_group.proxy_security_group.id] # allows trusted host to communicate with my implemented proxy
+  }
 }
 
 # create security group for proxy
@@ -199,6 +206,13 @@ resource "aws_security_group" "proxy_security_group" {
   ingress {
     from_port   = 6033
     to_port     = 6033
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.1.0/24"] # maps to the trusted host's subnet
+  }
+
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
     protocol    = "tcp"
     cidr_blocks = ["10.0.1.0/24"] # maps to the trusted host's subnet
   }
@@ -330,7 +344,29 @@ resource "aws_ssm_parameter" "manager_private_dns" {
 #  }
 #}
 
-# create the proxy instance
+# create the proxy instance if we want to use ProxySQL
+#resource "aws_instance" "proxy" {
+##  count = 1
+#  ami = "ami-0fc5d935ebf8bc3bc"
+#  vpc_security_group_ids = [aws_security_group.proxy_security_group.id]
+#  subnet_id = aws_subnet.proxy_cluster_subnet.id
+#  instance_type = "t2.micro"
+#  key_name = "mysql_kp"
+#  user_data = templatefile("proxy_script.tpl", {
+#    accessKey = "${var.access_key}"
+#    secretKey = "${var.secret_key}"
+#    token = "${var.token}"
+#    worker1privateDNS = aws_instance.worker1.private_dns
+#    worker2privateDNS = aws_instance.worker2.private_dns
+#    worker3privateDNS = aws_instance.worker3.private_dns
+#    mysql_kp = file("mysql_kp.pem")
+#  }) # templatefile allows us to use terraform to pass instance information to another instance
+#  tags = {
+#    Name = "Proxy"
+#  }
+#}
+
+# create the proxySQL instance to test our python
 resource "aws_instance" "proxy" {
 #  count = 1
   ami = "ami-0fc5d935ebf8bc3bc"
@@ -338,7 +374,7 @@ resource "aws_instance" "proxy" {
   subnet_id = aws_subnet.proxy_cluster_subnet.id
   instance_type = "t2.micro"
   key_name = "mysql_kp"
-  user_data = templatefile("proxy_script.tpl", {
+  user_data = templatefile("proxy_script2.tpl", {
     accessKey = "${var.access_key}"
     secretKey = "${var.secret_key}"
     token = "${var.token}"
@@ -346,6 +382,11 @@ resource "aws_instance" "proxy" {
     worker2privateDNS = aws_instance.worker2.private_dns
     worker3privateDNS = aws_instance.worker3.private_dns
     mysql_kp = file("mysql_kp.pem")
+    python_file = base64encode(templatefile("proxy_telnet.py", {
+      worker1privateDNS = aws_instance.worker1.private_dns
+      worker2privateDNS = aws_instance.worker2.private_dns
+      worker3privateDNS = aws_instance.worker3.private_dns
+    }))
   }) # templatefile allows us to use terraform to pass instance information to another instance
   tags = {
     Name = "Proxy"
