@@ -18,7 +18,7 @@ sudo sh -c "echo 'export PATH=$MYSQLC_HOME/bin:$PATH' >> /etc/profile.d/mysqlc.s
 source /etc/profile.d/mysqlc.sh
 sudo apt-get -y install libncurses5
 
-# specific to master
+# specific to master, set up configuration
 sudo mkdir -p /opt/mysqlcluster/deploy
 cd /opt/mysqlcluster/deploy
 sudo mkdir conf
@@ -69,7 +69,7 @@ sudo scripts/mysql_install_db --no-defaults --datadir=/opt/mysqlcluster/deploy/m
 # run the management service
 sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgmd -f /opt/mysqlcluster/deploy/conf/config.ini --initial --configdir=/opt/mysqlcluster/deploy/conf/
 
-#start node server
+# start SQL node server
 sudo /opt/mysqlcluster/home/mysqlc/bin/mysqld --defaults-file=/opt/mysqlcluster/deploy/conf/my.cnf --user=root &
 
 sleep 50

@@ -1,10 +1,11 @@
+#!/bin/bash
 # If we want to use the random pattern, we can simply not do anything, since ProxySQL will automatically assign
 # Weights of 1 to each server, meaning each server will be used the same amount, and requests will be essentially random.
 # Otherwise, we can use the following script:
-#!/bin/bash
 servers=($manager_private_dns ${worker1privateDNS} ${worker2privateDNS} ${worker3privateDNS})
 command="UPDATE mysql_servers SET status = CASE "
 i=0
+# use random number to select server
 random=$((RANDOM % 4))
 for server in "$${servers[@]}"; do
     if [ $i -eq $random ]; then

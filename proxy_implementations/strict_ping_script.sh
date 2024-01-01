@@ -22,6 +22,7 @@ for server in "$${servers[@]}"; do
     fi
 done
 
+# logic for updating ProxySQL rules appropriately
 command="UPDATE mysql_servers SET status = CASE "
 i=0
 port=3306

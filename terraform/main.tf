@@ -190,7 +190,7 @@ resource "aws_security_group" "trustedhost_security_group" {
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    security_groups = [aws_security_group.proxy_security_group.id] # allows trusted host to communicate with my implemented proxy
+    security_groups = [aws_security_group.proxy_security_group.id] # allows trusted host to communicate with my python implemented proxy
   }
 }
 
@@ -350,7 +350,7 @@ resource "aws_instance" "proxy" {
   ami = "ami-0fc5d935ebf8bc3bc"
   vpc_security_group_ids = [aws_security_group.proxy_security_group.id]
   subnet_id = aws_subnet.proxy_cluster_subnet.id
-  instance_type = "t2.micro"
+  instance_type = "t2.large"
   key_name = "mysql_kp"
   user_data = templatefile("proxy_script.tpl", {
     accessKey = "${var.access_key}"
@@ -366,7 +366,7 @@ resource "aws_instance" "proxy" {
   }
 }
 
-## create the proxySQL instance to test our python
+## create the implemented proxy instance to test our python implementation
 #resource "aws_instance" "proxy" {
 ##  count = 1
 #  ami = "ami-0fc5d935ebf8bc3bc"
@@ -398,7 +398,7 @@ resource "aws_instance" "trustedhost" {
   ami = "ami-0fc5d935ebf8bc3bc"
   vpc_security_group_ids = [aws_security_group.trustedhost_security_group.id]
   subnet_id = aws_subnet.trustedhost_subnet.id
-  instance_type = "t2.micro"
+  instance_type = "t2.large"
   key_name = "mysql_kp"
   user_data = templatefile("trustedhost_script.tpl", {
     mysql_kp = file("mysql_kp.pem")
@@ -414,7 +414,7 @@ resource "aws_instance" "gatekeeper" {
   ami = "ami-0fc5d935ebf8bc3bc"
   vpc_security_group_ids = [aws_security_group.gatekeeper_security_group.id]
   subnet_id = aws_subnet.gatekeeper_subnet.id
-  instance_type = "t2.micro"
+  instance_type = "t2.large"
   key_name = "mysql_kp"
   user_data = templatefile("gatekeeper_script.tpl", {
     mysql_kp = file("mysql_kp.pem")

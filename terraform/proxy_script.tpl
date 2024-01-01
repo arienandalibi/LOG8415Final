@@ -5,12 +5,12 @@ exec > /home/ubuntu/startup.log 2>&1
 sudo wget -O - 'https://repo.proxysql.com/ProxySQL/proxysql-2.5.x/repo_pub_key' | sudo apt-key add -
 sudo echo deb https://repo.proxysql.com/ProxySQL/proxysql-2.5.x/$(lsb_release -sc)/ ./ | sudo tee /etc/apt/sources.list.d/proxysql.list
 
-# install and start service so we can connect to it
+# install and start proxySQL service so we can connect to it
 sudo apt-get update
 sudo apt-get install -y proxysql
 sudo service proxysql start
 
-# allows us to interact with the configuration of proxysql
+# allows us to interact with the configuration of proxysql and AWS to get manager DNS
 sudo apt-get install -y mysql-client
 sudo apt-get install -y awscli
 export AWS_ACCESS_KEY_ID="${accessKey}"
@@ -79,6 +79,7 @@ mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<LOL
 LOL
 EOF'
 
+# create file containing private key
 sudo tee mysql_kp.pem <<EOF
 ${mysql_kp}
 EOF
@@ -86,11 +87,12 @@ EOF
 sudo chmod 600 /home/ubuntu/mysql_kp.pem
 sudo chmod +x ping_script.sh
 
+# establish port forwards used for connections
 sudo ssh -fN -L 3307:localhost:3306 -i mysql_kp.pem -o StrictHostKeyChecking=no ubuntu@${worker1privateDNS}
 sudo ssh -fN -L 3308:localhost:3306 -i mysql_kp.pem -o StrictHostKeyChecking=no ubuntu@${worker2privateDNS}
 sudo ssh -fN -L 3309:localhost:3306 -i mysql_kp.pem -o StrictHostKeyChecking=no ubuntu@${worker3privateDNS}
 
-
+# configure ProxySQL properly
 mysql -u admin -padmin -h 127.0.0.1 -P 6032 <<EOF
 UPDATE global_variables SET variable_value='monitor' WHERE variable_name='mysql-monitor_username';
 UPDATE global_variables SET variable_value='monitorpassword' WHERE variable_name='mysql-monitor_password';
@@ -153,6 +155,3 @@ EOF
 # If we want to use the customized proxy pattern, we run our script from above which pings the servers and updates our preferred server
 # or else, we can change ping_script.sh for the script right above to send to random servers
 nohup bash -c "while true; do /home/ubuntu/ping_script.sh; sleep 1; done" > /dev/null 2>&1 &
-
-# proxy script
-# pip install mysql-connector-python

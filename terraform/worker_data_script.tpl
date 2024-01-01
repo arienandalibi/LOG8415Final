@@ -27,6 +27,7 @@ export AWS_DEFAULT_REGION="us-east-1"
 
 export manager_private_dns=$(aws ssm get-parameter --name "/myapp/manager_private_dns" --query "Parameter.Value" --output text)
 
+# create required directories
 sudo mkdir -p /opt/mysqlcluster/deploy
 cd /opt/mysqlcluster/deploy
 sudo mkdir conf
@@ -45,6 +46,7 @@ EOF'
 
 sudo chmod 600 /home/ubuntu/mysql_kp.pem
 
+# establish port forwarding to the master
 sudo ssh -fN -L 3306:localhost:3306 -i mysql_kp.pem -o StrictHostKeyChecking=no ubuntu@$manager_private_dns
 
 # attempt to run server on the data node

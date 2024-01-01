@@ -2,9 +2,6 @@
 
 exec > /home/ubuntu/startup.log 2>&1
 
-#sudo apt-get update
-#sudo apt-get install -y mysql-client
-
 cd /home/ubuntu
 sudo sh -c 'cat <<EOF >mysql_kp.pem
 ${mysql_kp}
