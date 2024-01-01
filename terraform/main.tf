@@ -344,7 +344,7 @@ resource "aws_ssm_parameter" "manager_private_dns" {
 #  }
 #}
 
- create the proxy instance if we want to use ProxySQL
+# create the proxy instance if we want to use ProxySQL
 resource "aws_instance" "proxy" {
 #  count = 1
   ami = "ami-0fc5d935ebf8bc3bc"
@@ -497,13 +497,3 @@ resource "aws_instance" "worker3" {
     Name = "Worker3"
   }
 }
-
-# output the instance ids for the workers
-#output "t2_instance" {
-#  value = [for instance in aws_instance.t2_workers: instance.id]
-#}
-
-# output the instance ids for the manager
-# output "m4_orchestrator" {
-#   value = aws_instance.m4_orchestrator.id
-# }

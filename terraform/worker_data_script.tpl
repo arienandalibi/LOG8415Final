@@ -17,7 +17,7 @@ sudo sh -c "echo 'export PATH=$MYSQLC_HOME/bin:$PATH' >> /etc/profile.d/mysqlc.s
 source /etc/profile.d/mysqlc.sh
 sudo apt-get -y install libncurses5
 
-# connect to host
+# get manager's private DNS from AWS's SSM
 sudo apt-get install -y awscli
 export AWS_ACCESS_KEY_ID="${accessKey}"
 export AWS_SECRET_ACCESS_KEY="${secretKey}"
@@ -27,7 +27,6 @@ export AWS_DEFAULT_REGION="us-east-1"
 
 export manager_private_dns=$(aws ssm get-parameter --name "/myapp/manager_private_dns" --query "Parameter.Value" --output text)
 
-#echo $manager_private_dns > /home/ubuntu/manager_dns.log
 sudo mkdir -p /opt/mysqlcluster/deploy
 cd /opt/mysqlcluster/deploy
 sudo mkdir conf
